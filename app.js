@@ -3,8 +3,8 @@
 //
 
 const {BotFrameworkAdapter, FileStorage, ConversationState, UserState, BotStateSet, 
-    MessageFactory, NumberPrompt, TextPrompt, DatetimePrompt } = require("botbuilder");
-const {DialogSet} = require("botbuilder-dialogs");
+    MessageFactory } = require("botbuilder");
+const {NumberPrompt, TextPrompt, DatetimePrompt, DialogSet} = require("botbuilder-dialogs");
 const restify = require("restify");
 
 // Create server
@@ -20,9 +20,9 @@ const adapter = new BotFrameworkAdapter({
 
 // Storage
 const storage = new FileStorage("c:/temp");
-const convoState = new ConversationState(storage);
+const conversationState = new ConversationState(storage);
 const userState  = new UserState(storage);
-adapter.use(new BotStateSet(convoState, userState));
+adapter.use(new BotStateSet(conversationState, userState));
 
 
 // Create empty dialog set
@@ -34,7 +34,7 @@ server.post('/api/messages', (req, res) => {
         const isMessage = (context.activity.type === 'message');
         // State will store all of your information 
         const convo = conversationState.get(context);
-        const dc = dialogs.createContext(context, state);
+        const dc = dialogs.createContext(context, convo);
 
         if (isMessage) {
             // Check for valid intents
@@ -64,17 +64,17 @@ server.post('/api/messages', (req, res) => {
 // Ask for the user name and then greet them by name.
 dialogs.add('greeting',[
     async function (dc){
-        dc.currentDialog.state = {};
+        dc.activeDialog.state = {};
         await dc.prompt('textPrompt', 'Hi! What is your name?');
     },
     async function(dc, results){
-        dc.currentDialog.state.userName = results;
-        await dc.context.sendActivity(`Hello ${dc.currentDialog.state.userName}!`);
+        dc.activeDialog.state.userName = results;
+        await dc.context.sendActivity(`Hi ${dc.activeDialog.state.userName}!`);
         await dc.prompt('textPrompt', 'Where do you work?');
     },
     async function(dc, results){
-        dc.currentDialog.state.workPlace = results;
-        await dc.context.sendActivity(`${dc.currentDialog.state.workPlace} is a fun place to work.`);
+        dc.activeDialog.state.workPlace = results;
+        await dc.context.sendActivity(`${dc.activeDialog.state.workPlace} is a fun place.`);
         await dc.end(); // Ends the dialog
     }
 ]);
@@ -93,33 +93,33 @@ dialogs.add('reserveTable', [
     async function(dc, args, next){
         await dc.context.sendActivity("Welcome to the reservation service.");
 
-        dc.currentDialog.state.reservationInfo = {}; // Clears any previous data
+        dc.activeDialog.state.reservationInfo = {}; // Clears any previous data
         await dc.prompt('dateTimePrompt', "Please provide a reservation date and time.");
     },
     async function(dc, result){
-        dc.currentDialog.state.reservationInfo.dateTime = result[0].value;
+        dc.activeDialog.state.reservationInfo.dateTime = result[0].value;
 
         // Ask for next info
         await dc.prompt('partySizePrompt', "How many people are in your party?");
     },
     async function(dc, result){
-        dc.currentDialog.state.reservationInfo.partySize = result;
+        dc.activeDialog.state.reservationInfo.partySize = result;
 
         // Ask for next info
         await dc.prompt('textPrompt', "Who's name will this be under?");
     },
     async function(dc, result){
-        dc.currentDialog.state.reservationInfo.reserveName = result;
+        dc.activeDialog.state.reservationInfo.reserveName = result;
         
         // Persist data
-        var convo = convoState.get(dc.context);; // conversationState.get(dc.context);
-        convo.reservationInfo = dc.currentDialog.state.reservationInfo;
+        var convo = conversationState.get(dc.context);; // conversationState.get(dc.context);
+        convo.reservationInfo = dc.activeDialog.state.reservationInfo;
 
         // Confirm reservation
         var msg = `Reservation confirmed. Reservation details: 
-            <br/>Date/Time: ${dc.currentDialog.state.reservationInfo.dateTime} 
-            <br/>Party size: ${dc.currentDialog.state.reservationInfo.partySize} 
-            <br/>Reservation name: ${dc.currentDialog.state.reservationInfo.reserveName}`;
+            <br/>Date/Time: ${dc.activeDialog.state.reservationInfo.dateTime} 
+            <br/>Party size: ${dc.activeDialog.state.reservationInfo.partySize} 
+            <br/>Reservation name: ${dc.activeDialog.state.reservationInfo.reserveName}`;
         await dc.context.sendActivity(msg);
         await dc.end();
     }
