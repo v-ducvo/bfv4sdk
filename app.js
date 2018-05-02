@@ -24,7 +24,6 @@ const conversationState = new ConversationState(storage);
 const userState  = new UserState(storage);
 adapter.use(new BotStateSet(conversationState, userState));
 
-
 // Create empty dialog set
 const dialogs = new DialogSet();
 
