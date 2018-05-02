@@ -16,8 +16,8 @@ const adapter = new botbuilder.BotFrameworkAdapter({
 });
 
 const storage = new MemoryStorage();
-const userState  = new UserState(storage);
-adapter.use(new BotStateSet(userState));
+// const userState  = new UserState(storage);
+// adapter.use(new BotStateSet(userState));
 
 // Listen for incoming activity 
 server.post('/api/messages', (req, res) => {
@@ -43,7 +43,6 @@ async function saveReference(reference){
     const userId = reference.id;
     const changes = {};
     changes['reference/' + userId] = reference;
-    ref = changes;
     await storage.write(changes); // Write reference info to persisted storage
     return userId;
 }
@@ -64,7 +63,6 @@ async function subscribeUser(userId) {
         if (reference) {
             await adapter.continueConversation(reference, async (context) => {
                 await context.sendActivity("Coming back at you");
-                console.log("proactively called");
             });
             
         }
