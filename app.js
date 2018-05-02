@@ -1,10 +1,7 @@
-const { MemoryStorage } = require('botbuilder');
+const { MemoryStorage, BotStateSet, UserState, ConversationState } = require('botbuilder');
 const botbuilder = require('botbuilder');
 const restify = require('restify');
 const {MessageFactory} = require('botbuilder');
-
-
-const storage = new MemoryStorage();
 
 // Create server
 let server = restify.createServer();
@@ -18,6 +15,9 @@ const adapter = new botbuilder.BotFrameworkAdapter({
     appPassword: process.env.MICROSOFT_APP_PASSWORD 
 });
 
+const storage = new MemoryStorage();
+const userState  = new UserState(storage);
+adapter.use(new BotStateSet(userState));
 
 // Listen for incoming activity 
 server.post('/api/messages', (req, res) => {
@@ -26,11 +26,7 @@ server.post('/api/messages', (req, res) => {
         if (context.activity.type === 'message') {
             const utterances = (context.activity.text || '').trim().toLowerCase()
             if (utterances === 'subscribe') {
-                const reference = context.activity;
-                const userId = reference.id;
-                const changes = {};
-                changes['reference/' + userId] = reference;
-                await storage.write(changes)
+                var userId = await saveReference(context.activity);
                 await subscribeUser(userId)
                 await context.sendActivity(`Thank You! We will message you shortly.`);
                
@@ -42,30 +38,37 @@ server.post('/api/messages', (req, res) => {
     });
 });
 
-
-async function subscribeUser(userId) {
-    setTimeout(() => {
-        createContextForUser(userId)
-    }, 2000);
+// Persist info to storage
+async function saveReference(reference){
+    const userId = reference.id;
+    const changes = {};
+    changes['reference/' + userId] = reference;
+    ref = changes;
+    await storage.write(changes); // Write reference info to persisted storage
+    return userId;
 }
 
-async function createContextForUser(userId, callback) {
-
-    const reference = await findReference(userId);
-    if (reference) {
-        await adapter.continueConversation(reference, async (context) => {
-           await context.sendActivity("coming back at you");
-        });
-        
-     }
-    // await callback(adapter.createContext(reference))
-          
-}
-
+// Read the stored reference info from storage
 async function findReference(userId){
     const referenceKey = 'reference/' + userId;
     var rows = await storage.read([referenceKey])
     var reference = await rows[referenceKey]
+
     return reference;
 }
+
+// Subscribe user to a proactive call. In this case, we are using a setTimeOut() to trigger the proactive call
+async function subscribeUser(userId) {
+    setTimeout(async () => {
+        const reference = await findReference(userId);
+        if (reference) {
+            await adapter.continueConversation(reference, async (context) => {
+                await context.sendActivity("Coming back at you");
+                console.log("proactively called");
+            });
+            
+        }
+    }, 2000); // Trigger after 2 secs
+}
+
 
