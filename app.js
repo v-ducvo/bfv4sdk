@@ -1,4 +1,4 @@
-const { MemoryStorage, BotStateSet, UserState, ConversationState } = require('botbuilder');
+const { MemoryStorage, BotStateSet, UserState, ConversationState, TurnContext } = require('botbuilder');
 const botbuilder = require('botbuilder');
 const restify = require('restify');
 const {MessageFactory} = require('botbuilder');
@@ -26,7 +26,7 @@ server.post('/api/messages', (req, res) => {
         if (context.activity.type === 'message') {
             const utterances = (context.activity.text || '').trim().toLowerCase()
             if (utterances === 'subscribe') {
-                var userId = await saveReference(context.activity);
+                var userId = await saveReference(TurnContext.getConversationReference(context.activity));
                 await subscribeUser(userId)
                 await context.sendActivity(`Thank You! We will message you shortly.`);
                
