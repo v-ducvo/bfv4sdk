@@ -1,125 +1,117 @@
-// Bot Framework v4 SDK Sample
-// This bot will greet the user by name and help user reserve a table
-//
-
-const {BotFrameworkAdapter, FileStorage, ConversationState, UserState, BotStateSet, 
-    MessageFactory } = require("botbuilder");
-const {NumberPrompt, TextPrompt, DatetimePrompt, DialogSet} = require("botbuilder-dialogs");
+const {BotFrameworkAdapter, ConversationState, BotStateSet} = require("botbuilder");
+const { CosmosDbStorage } = require("botbuilder-azure");
 const restify = require("restify");
+const {DialogSet, TextPrompt} = require("botbuilder-dialogs");
+
+const dialogs = new DialogSet();
+var num = 0;
 
 // Create server
 let server = restify.createServer();
 server.listen(process.env.port || process.env.PORT || 3978, function () {
     console.log(`${server.name} listening to ${server.url}`);
 });
+
 // Create adapter
 const adapter = new BotFrameworkAdapter({
     appId: process.env.MICROSOFT_APP_ID,
     appPassword: process.env.MICROSOFT_APP_PASSWORD
 });
 
-// Storage
-const storage = new FileStorage("c:/temp");
-const conversationState = new ConversationState(storage);
-const userState  = new UserState(storage);
-adapter.use(new BotStateSet(conversationState, userState));
 
-// Create empty dialog set
-const dialogs = new DialogSet();
+var cosmosDB = new CosmosDbStorage({
+    serviceEndpoint: 'https://lucas-cosmos-db.documents.azure.com:443/',
+    authKey: 'VloIqoMckfrFoa8AtWfjgRrmRGLm9I8Bt9MUgDeI1ldbBWrn20XBn9IhwhMY0wBcAZhkaX6ihmAcEJ42Lxuzsw==',
+    databaseId: 'Tasks',
+    collectionId: 'Items'
+});
 
-// Listen for incoming activity 
+adapter.use({onTurn: async (context, next) =>{
+
+    // If the user types 'history' it should call the 3 previous logs in the DB
+    const utterance = (context.activity.text || '').trim().toLowerCase();
+    if(utterance.includes('history')){
+        await context.sendActivity('will look though the data');
+        var historyString = ""
+        // I want to read from the last 3 inputs
+        for(var i = num; i > num -3; i--){
+            var info = await cosmosDB.read([i.toString()]);
+            console.log('the info was', info);
+            historyString += `You said: ${info.message}`;
+        }
+
+        console.log('you said ', historyString)
+    }
+
+    else if(context.activity.type === "message"){
+
+        // build a log object to write to the database
+        var log = {
+            time: "",
+            message: "",
+            reply: ""
+        };
+
+        log.message = context.activity.text;
+        log.time = context.activity.localTimestamp;
+
+
+        //increment num and use it as a key in the DataBase
+        num ++
+        var key = num;
+        var obj = {};
+        obj[key] = log;
+        await cosmosDB.write(obj)
+
+    }
+
+    await next();            
+
+}})
+
+
+// Using cosmosDb as the storage provider
+const conversationState = new ConversationState(cosmosDB);
+adapter.use(new BotStateSet(conversationState));
+
+// Listen for incoming requests 
 server.post('/api/messages', (req, res) => {
     adapter.processActivity(req, res, async (context) => {
-        const isMessage = (context.activity.type === 'message');
-        // State will store all of your information 
-        const convo = conversationState.get(context);
-        const dc = dialogs.createContext(context, convo);
+        
+        const isMessage = context.activity.type === 'message';
+        const state = conversationState.get(context);
+        const dc = dialogs.createContext(context, state);
 
-        if (isMessage) {
-            // Check for valid intents
-            if(context.activity.text.match(/hi/ig)){
-                await dc.begin('greeting');
-            }
-            else if(context.activity.text.match(/reserve table/ig)){
-                await dc.begin('reserveTable');
-            }
+        await dc.continue();
+
+        if(!context.responded && isMessage){
+            dc.begin('greetings')
+           
         }
-
-        if(!context.responded){
-            // Continue executing the "current" dialog, if any.
-            await dc.continue();
-
-            if(!context.responded && isMessage){
-                // Default message
-                await context.sendActivity("Hi! I'm a simple bot. Please say 'Hi' or 'Reserve table'.");
-            }
-        }
+       
     });
 });
 
-// Define dialogs
 
-// Greet user by name:
+
+// Greet user:
 // Ask for the user name and then greet them by name.
-dialogs.add('greeting',[
+// Ask them where they work.
+dialogs.add('greetings',[
     async function (dc){
-        dc.activeDialog.state = {};
-        await dc.prompt('textPrompt', 'Hi! What is your name?');
+        await dc.prompt('textPrompt', 'What is your name?');
     },
-    async function(dc, results){
-        dc.activeDialog.state.userName = results;
-        await dc.context.sendActivity(`Hi ${dc.activeDialog.state.userName}!`);
+    async function(dc, userName){
+        await dc.context.sendActivity(`Hi ${userName}!`);
+
+        // Ask them where they work
         await dc.prompt('textPrompt', 'Where do you work?');
     },
-    async function(dc, results){
-        dc.activeDialog.state.workPlace = results;
-        await dc.context.sendActivity(`${dc.activeDialog.state.workPlace} is a fun place.`);
-        await dc.end(); // Ends the dialog
-    }
-]);
+    async function(dc, workPlace){
+        await dc.context.sendActivity(`${workPlace} is a cool place!`);
 
-// Define prompts
-// Generic prompts
-dialogs.add('numberPrompt', new NumberPrompt());
-dialogs.add('textPrompt', new TextPrompt());
-dialogs.add('dateTimePrompt', new DatetimePrompt());
-dialogs.add('partySizePrompt', new NumberPrompt());
-
-// Reserve a table:
-// Help the user to reserve a table
-
-dialogs.add('reserveTable', [
-    async function(dc, args, next){
-        await dc.context.sendActivity("Welcome to the reservation service.");
-
-        dc.activeDialog.state.reservationInfo = {}; // Clears any previous data
-        await dc.prompt('dateTimePrompt', "Please provide a reservation date and time.");
-    },
-    async function(dc, result){
-        dc.activeDialog.state.reservationInfo.dateTime = result[0].value;
-
-        // Ask for next info
-        await dc.prompt('partySizePrompt', "How many people are in your party?");
-    },
-    async function(dc, result){
-        dc.activeDialog.state.reservationInfo.partySize = result;
-
-        // Ask for next info
-        await dc.prompt('textPrompt', "Who's name will this be under?");
-    },
-    async function(dc, result){
-        dc.activeDialog.state.reservationInfo.reserveName = result;
-        
-        // Persist data
-        var convo = conversationState.get(dc.context);; // conversationState.get(dc.context);
-        convo.reservationInfo = dc.activeDialog.state.reservationInfo;
-
-        // Confirm reservation
-        var msg = `Reservation confirmed. Reservation details: 
-            <br/>Date/Time: ${dc.activeDialog.state.reservationInfo.dateTime} 
-            <br/>Party size: ${dc.activeDialog.state.reservationInfo.partySize} 
-            <br/>Reservation name: ${dc.activeDialog.state.reservationInfo.reserveName}`;
-        await dc.context.sendActivity(msg);
         await dc.end();
     }
 ]);
+
+dialogs.add('textPrompt', new TextPrompt());
