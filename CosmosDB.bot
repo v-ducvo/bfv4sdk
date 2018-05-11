@@ -1,0 +1,15 @@
+{
+    "name": "CosmosDB",
+    "description": "",
+    "secretKey": "",
+    "services": [
+        {
+            "id": "50a66040-5547-11e8-bd05-d917d17f6d19",
+            "name": "http://localhost:3978/app/messages",
+            "type": "endpoint",
+            "appId": "",
+            "appPassword": "",
+            "endpoint": "http://localhost:3978/api/messages"
+        }
+    ]
+}

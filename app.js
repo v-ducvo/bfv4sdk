@@ -4,7 +4,6 @@ const restify = require("restify");
 const {DialogSet, TextPrompt} = require("botbuilder-dialogs");
 
 const dialogs = new DialogSet();
-var num = 0;
 
 // Create server
 let server = restify.createServer();
@@ -85,10 +84,11 @@ server.post('/api/messages', (req, res) => {
         await dc.continue();
 
         if(!context.responded && isMessage){
-            var userInfo = await dc.begin('greetings');
+            // var userInfo = 
+            await dc.begin('greetings');
 
-            state.userInfo = {};
-            state.userInfo = userInfo; // Persisting state
+            // state.userInfo = {};
+            // state.userInfo = userInfo; // Persisting state
         }
        
     });
@@ -101,21 +101,21 @@ server.post('/api/messages', (req, res) => {
 // Ask them where they work.
 dialogs.add('greetings',[
     async function (dc){
-        dc.activeDialog.state.userInfo = {};
+        // dc.activeDialog.state.userInfo = {};
         await dc.prompt('textPrompt', 'What is your name?');
     },
     async function(dc, userName){
-        dc.activeDialog.state.userInfo.userName = userName;
+        // dc.activeDialog.state.userInfo.userName = userName;
         await dc.context.sendActivity(`Hi ${userName}!`);
 
         // Ask them where they work
         await dc.prompt('textPrompt', 'Where do you work?');
     },
     async function(dc, workPlace){
-        dc.activeDialog.state.userInfo.workPlace = workPlace;
+        // dc.activeDialog.state.userInfo.workPlace = workPlace;
         await dc.context.sendActivity(`${workPlace} is a cool place!`);
 
-        await dc.end(dc.activeDialog.state.userInfo);
+        await dc.end(); //dc.activeDialog.state.userInfo
     }
 ]);
 
