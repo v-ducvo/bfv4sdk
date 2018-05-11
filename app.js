@@ -20,54 +20,54 @@ const adapter = new BotFrameworkAdapter({
 
 
 var cosmosDB = new CosmosDbStorage({
-    serviceEndpoint: 'https://lucas-cosmos-db.documents.azure.com:443/',
-    authKey: 'VloIqoMckfrFoa8AtWfjgRrmRGLm9I8Bt9MUgDeI1ldbBWrn20XBn9IhwhMY0wBcAZhkaX6ihmAcEJ42Lxuzsw==',
+    serviceEndpoint: 'https://cashbot.table.cosmosdb.azure.com:443/',
+    authKey: 'u5ZLZaSXllet4gKDKFEkZ9epGdfpMdB5GqfL0iFTXO8b074eYWeFf8gV8midHIjZe6kOMGocqsZ2B87kJkuIxQ==',
     databaseId: 'Tasks',
-    collectionId: 'Items'
+    collectionId: 'History'
 });
 
-adapter.use({onTurn: async (context, next) =>{
+// adapter.use({onTurn: async (context, next) =>{
 
-    // If the user types 'history' it should call the 3 previous logs in the DB
-    const utterance = (context.activity.text || '').trim().toLowerCase();
-    if(utterance.includes('history')){
-        await context.sendActivity('will look though the data');
-        var historyString = ""
-        // I want to read from the last 3 inputs
-        for(var i = num; i > num -3; i--){
-            var info = await cosmosDB.read([i.toString()]);
-            console.log('the info was', info);
-            historyString += `You said: ${info.message}`;
-        }
+//     // If the user types 'history' it should call the 3 previous logs in the DB
+//     const utterance = (context.activity.text || '').trim().toLowerCase();
+//     if(utterance.includes('history')){
+//         await context.sendActivity('will look though the data');
+//         var historyString = ""
+//         // I want to read from the last 3 inputs
+//         for(var i = num; i > num -3; i--){
+//             var info = await cosmosDB.read([i.toString()]);
+//             console.log('the info was', info);
+//             historyString += `You said: ${info.message}`;
+//         }
 
-        console.log('you said ', historyString)
-    }
+//         console.log('you said ', historyString)
+//     }
 
-    else if(context.activity.type === "message"){
+//     else if(context.activity.type === "message"){
 
-        // build a log object to write to the database
-        var log = {
-            time: "",
-            message: "",
-            reply: ""
-        };
+//         // build a log object to write to the database
+//         var log = {
+//             time: "",
+//             message: "",
+//             reply: ""
+//         };
 
-        log.message = context.activity.text;
-        log.time = context.activity.localTimestamp;
+//         log.message = context.activity.text;
+//         log.time = context.activity.localTimestamp;
 
 
-        //increment num and use it as a key in the DataBase
-        num ++
-        var key = num;
-        var obj = {};
-        obj[key] = log;
-        await cosmosDB.write(obj)
+//         //increment num and use it as a key in the DataBase
+//         num ++
+//         var key = num;
+//         var obj = {};
+//         obj[key] = log;
+//         await cosmosDB.write(obj)
 
-    }
+//     }
 
-    await next();            
+//     await next();            
 
-}})
+// }})
 
 
 // Using cosmosDb as the storage provider
@@ -85,8 +85,10 @@ server.post('/api/messages', (req, res) => {
         await dc.continue();
 
         if(!context.responded && isMessage){
-            dc.begin('greetings')
-           
+            var userInfo = await dc.begin('greetings');
+
+            state.userInfo = {};
+            state.userInfo = userInfo; // Persisting state
         }
        
     });
@@ -99,18 +101,21 @@ server.post('/api/messages', (req, res) => {
 // Ask them where they work.
 dialogs.add('greetings',[
     async function (dc){
+        dc.activeDialog.state.userInfo = {};
         await dc.prompt('textPrompt', 'What is your name?');
     },
     async function(dc, userName){
+        dc.activeDialog.state.userInfo.userName = userName;
         await dc.context.sendActivity(`Hi ${userName}!`);
 
         // Ask them where they work
         await dc.prompt('textPrompt', 'Where do you work?');
     },
     async function(dc, workPlace){
+        dc.activeDialog.state.userInfo.workPlace = workPlace;
         await dc.context.sendActivity(`${workPlace} is a cool place!`);
 
-        await dc.end();
+        await dc.end(dc.activeDialog.state.userInfo);
     }
 ]);
 
