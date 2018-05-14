@@ -1,0 +1,25 @@
+{
+  "name": "bfv4sdk",
+  "version": "1.0.0",
+  "description": "Bot Framework v4 SDK samples",
+  "main": "app.js",
+  "dependencies": {
+    "botbuilder": "^4.0.0-preview1.2",
+    "botbuilder-dialogs": "^4.0.0-m4.2",
+    "restify": "^7.1.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/v-ducvo/bfv4sdk.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/v-ducvo/bfv4sdk/issues"
+  },
+  "homepage": "https://github.com/v-ducvo/bfv4sdk#readme"
+}
