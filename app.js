@@ -1,6 +1,7 @@
 // Bot Framework v4 SDK Sample
 // This bot will greet the user by name and help user reserve a table
 //
+// ** Set up to for continuous deployment via Visual Studio **
 
 const {BotFrameworkAdapter, FileStorage, ConversationState, UserState, BotStateSet, 
     MessageFactory } = require("botbuilder");
