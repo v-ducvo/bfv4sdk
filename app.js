@@ -38,7 +38,10 @@ server.post('/api/messages', (req, res) => {
         if (isMessage) {
             // Check for valid intents
             if(context.activity.text.match(/hi/ig)){
-                await dc.begin('greeting');
+                var workplace = await dc.begin('greeting');
+                if(workplace){
+                    console.log("Workplace: " + workplace);
+                }
             }
             else if(context.activity.text.match(/reserve table/ig)){
                 await dc.begin('reserveTable');
@@ -47,7 +50,7 @@ server.post('/api/messages', (req, res) => {
 
         if(!context.responded){
             // Continue executing the "current" dialog, if any.
-            await dc.continue();
+            var status = await dc.continue();
 
             if(!context.responded && isMessage){
                 // Default message
@@ -74,7 +77,7 @@ dialogs.add('greeting',[
     async function(dc, results){
         dc.activeDialog.state.workPlace = results;
         await dc.context.sendActivity(`${dc.activeDialog.state.workPlace} is a fun place.`);
-        await dc.end(); // Ends the dialog
+        return dc.end(results); // Ends the dialog
     }
 ]);
 
